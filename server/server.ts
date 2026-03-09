@@ -1,7 +1,9 @@
-import EventEmitter from "./eventEmitter";
+import { register, Counter, Gauge } from "prom-client";
 import { WebSocketServer, WebSocket } from "ws";
+import EventEmitter from "./eventEmitter";
 import { ethers } from "ethers";
 import crypto from "crypto";
+import http from "http";
 
 const DOMAIN = {
   name: "RealtimeFeed",
@@ -20,7 +22,25 @@ const ALLOWED_ADDRESSES = new Set([
   "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
 ]);
 
+// Prometheus Metrics
+const connectedClients = new Gauge({
+  name: "ws_connected_clients",
+  help: "Number of connected WebSocket clients",
+});
 
+const authSuccess = new Counter({
+  name: "ws_auth_success_total",
+  help: "Total successful authentications",
+});
+
+const metricsServer = http.createServer(async (req, res) => {
+  if (req.url === "/metrics") {
+    res.setHeader("Content-Type", register.contentType);
+    res.end(await register.metrics());
+  }
+});
+
+metricsServer.listen(9090);
 
 // Define Event types
 interface MarkEvents {
@@ -50,6 +70,7 @@ const pendingChallenges: Map<
 
 // Listen for new client connection
 wss.on("connection", (ws: any) => {
+  connectedClients.inc();
   console.log("server: new client connected - waiting for auth...");
 
   // send challenge to client
@@ -64,7 +85,6 @@ wss.on("connection", (ws: any) => {
 
   ws.on("message", (raw: any) => {
     const { type, payload } = JSON.parse(raw.toString());
-    console.log('type', type)
     if (type === "auth:response") {
       const pending = pendingChallenges.get(ws);
 
@@ -119,6 +139,7 @@ wss.on("connection", (ws: any) => {
         pendingChallenges.delete(ws);
         ws.isAlive = true;
         clients.add(ws);
+        authSuccess.inc();
 
         ws.send(
           JSON.stringify({
@@ -152,6 +173,7 @@ wss.on("connection", (ws: any) => {
   // close the connection handler
   ws.on("close", () => {
     clients.delete(ws);
+    connectedClients.dec();
   });
 });
 
@@ -222,4 +244,4 @@ setInterval(() => {
   });
 }, 3000);
 
-console.log("[Server] webscoket server runiing on localhost:8765");
+console.log("[Server] websocket server running on localhost:8765");
