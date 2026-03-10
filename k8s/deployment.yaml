@@ -15,7 +15,7 @@ spec:
       containers:
         - name: ws-server
           image: ws-server:latest
-          imagePullPolicy: Neve
+          imagePullPolicy: Never
           ports:
             - containerPort: 8765       # WebSocket
             - containerPort: 9090       # Prometheus metrics
