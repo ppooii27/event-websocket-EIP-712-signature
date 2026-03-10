@@ -27,6 +27,7 @@ function usePriceStream() {
   const [prices, setPrices] = React.useState<Record<string, number>>({});
   const [changes, setChanges] = React.useState<Record<string, number>>({});
   const [paused, setPaused] = React.useState(false);
+  const [status, setStatus] = React.useState<"connecting" | "authenticating" | "ready">("connecting");
 
   const wsRef = React.useRef<WebSocket | null>(null);
   const pausedRef = React.useRef(false); // ref for use inside ws.onmessage closure
@@ -43,6 +44,7 @@ function usePriceStream() {
 
       ws.onopen = () => {
         console.log("connection establised");
+        setStatus("authenticating");
       };
 
       ws.onmessage = async (raw: any) => {
@@ -69,6 +71,7 @@ function usePriceStream() {
         if (type === "auth:success") {
           console.log(`[Client] Auth passed! Address: ${payload.address}`);
           console.log("[Client] Now receiving market data...\n");
+          setStatus("ready");
         }
 
         if (type === "auth:failed") {
@@ -105,7 +108,7 @@ function usePriceStream() {
     };
   }, []);
 
-  return { prices, changes, paused, togglePause };
+  return { prices, changes, paused, togglePause, status };
 }
 
 export default usePriceStream;

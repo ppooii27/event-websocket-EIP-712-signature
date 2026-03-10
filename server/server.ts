@@ -22,7 +22,7 @@ const ALLOWED_ADDRESSES = new Set([
   "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
 ]);
 
-// Prometheus Metrics
+// Start Prometheus Metrics
 const connectedClients = new Gauge({
   name: "ws_connected_clients",
   help: "Number of connected WebSocket clients",
@@ -41,6 +41,7 @@ const metricsServer = http.createServer(async (req, res) => {
 });
 
 metricsServer.listen(9090);
+// End Prometheus Metrics
 
 // Define Event types
 interface MarkEvents {
@@ -177,6 +178,7 @@ wss.on("connection", (ws: any) => {
   });
 });
 
+// Heartbeat to detect dead connection every 5 seconds
 setInterval(() => {
   clients.forEach((ws: any) => {
     if (!ws.isAlive) {
