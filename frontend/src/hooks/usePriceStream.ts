@@ -26,8 +26,15 @@ console.log(`[Client] Wallet address: ${wallet.address}`);
 function usePriceStream() {
   const [prices, setPrices] = React.useState<Record<string, number>>({});
   const [changes, setChanges] = React.useState<Record<string, number>>({});
+  const [paused, setPaused] = React.useState(false);
 
   const wsRef = React.useRef<WebSocket | null>(null);
+  const pausedRef = React.useRef(false); // ref for use inside ws.onmessage closure
+
+  function togglePause() {
+    pausedRef.current = !pausedRef.current;
+    setPaused(pausedRef.current);
+  }
 
   React.useEffect(() => {
     function connect() {
@@ -70,6 +77,7 @@ function usePriceStream() {
         }
 
         if (type == "price:update") {
+          if (pausedRef.current) return; // ignore updates when paused
           const { symbol, price, change } = payload;
           setPrices((prev) => ({ ...prev, [symbol]: price }));
           setChanges((prev) => ({ ...prev, [symbol]: change }));
@@ -97,7 +105,7 @@ function usePriceStream() {
     };
   }, []);
 
-  return { prices, changes };
+  return { prices, changes, paused, togglePause };
 }
 
 export default usePriceStream;
