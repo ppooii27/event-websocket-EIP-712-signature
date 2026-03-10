@@ -1,14 +1,15 @@
 # Real-time WebSocket Dashboard with EIP-712 Auth
 
-A real-time trading dashboard built with TypeScript, WebSocket, React (Vite), and EIP-712 signature authentication. Includes observability with Prometheus + Grafana.
+A real-time trading dashboard built with TypeScript, WebSocket, React (Vite), and EIP-712 signature authentication. Includes observability with Prometheus + Grafana, deployable via Docker or Kubernetes.
 
 ## Tech Stack
 
 - **Backend**: Node.js, TypeScript, WebSocket (`ws`), EIP-712 (`ethers.js`)
-- **Frontend**: React 19, Vite, TypeScript
+- **Frontend**: React 19, Vite, TypeScript, nginx
 - **Testing**: Jest (unit), Playwright (E2E)
 - **Observability**: Prometheus, Grafana
 - **CI/CD**: GitHub Actions, SonarCloud
+- **Container**: Docker, Kubernetes
 
 ## Project Structure
 
@@ -20,20 +21,29 @@ A real-time trading dashboard built with TypeScript, WebSocket, React (Vite), an
 │   ├── serverWithAuth.ts     # WebSocket server with EIP-712 auth
 │   └── clientWithAuth.ts     # Test client with wallet signing
 ├── frontend/
+│   ├── Dockerfile            # Multi-stage build (node → nginx)
 │   ├── src/
 │   │   ├── App.tsx
-│   │   └── hooks/usePriceStream.ts  # WebSocket React hook
+│   │   └── hooks/usePriceStream.ts  # WebSocket React hook with EIP-712
 │   └── e2e/                  # Playwright E2E tests
-├── .github/workflows/
-│   └── sonar.yml             # GitHub Actions + SonarCloud
-├── docker-compose.yml        # Prometheus + Grafana
-└── prometheus.yml            # Prometheus scrape config
+├── k8s/
+│   ├── deployment.yaml       # ws-server Deployment (3 replicas)
+│   ├── service.yaml          # ws-server Service
+│   ├── frontend.yaml         # frontend Deployment + Service
+│   ├── prometheus.yaml       # Prometheus ConfigMap + Deployment + Service
+│   └── grafana.yaml          # Grafana Deployment + Service
+├── Dockerfile                # ws-server Docker image
+├── docker-compose.yml        # Local dev: Prometheus + Grafana
+├── prometheus.yml            # Prometheus scrape config (local)
+├── sonar-project.properties  # SonarCloud config
+└── .github/workflows/
+    └── sonar.yml             # GitHub Actions + SonarCloud
 ```
 
 ## Prerequisites
 
 - Node.js 20+
-- Docker (for Prometheus + Grafana)
+- Docker Desktop (with Kubernetes enabled for k8s deployment)
 
 ## Installation
 
@@ -45,12 +55,11 @@ npm install
 cd frontend && npm install && cd ..
 ```
 
-## Running
+## Running (Local Dev)
 
 ### 1. WebSocket Server
 
 ```bash
-# Server with EIP-712 auth
 npm run rt:server
 ```
 
@@ -62,7 +71,6 @@ npm run dev
 ```
 
 Open `http://localhost:5173`
-
 
 ## Testing
 
@@ -78,36 +86,86 @@ npm test
 # Install browsers (first time only)
 cd frontend && npx playwright install
 
-# Run E2E tests (server must be running)
+# Run E2E tests (server must be running first)
 npm run rt:server &
 npx playwright test
 ```
 
-## Observability
-
-### Start Prometheus + Grafana
+## Observability (Local — docker-compose)
 
 ```bash
 # Server must be running first (exposes /metrics on port 9090)
 npm run rt:server
 
-# Start containers
+# Start Prometheus + Grafana containers
 docker-compose up
 ```
 
-| Service    | URL                        | Credentials   |
-|------------|----------------------------|---------------|
-| Metrics    | http://localhost:9090/metrics | —          |
-| Prometheus | http://localhost:9091      | —             |
-| Grafana    | http://localhost:3001      | admin / admin |
+| Service    | URL                           | Credentials   |
+|------------|-------------------------------|---------------|
+| Metrics    | http://localhost:9090/metrics | —             |
+| Prometheus | http://localhost:9091         | —             |
+| Grafana    | http://localhost:3001         | admin / admin |
 
-### Grafana Setup
+Grafana Data Source URL: `http://prometheus:9090`
 
-1. Go to `http://localhost:3001`
-2. **Connections** → **Add new connection** → Prometheus
-3. URL: `http://prometheus:9090` → **Save & Test**
-4. **Dashboards** → **New** → Add panel
-5. Query: `ws_connected_clients` or `ws_auth_success_total`
+## Kubernetes Deployment
+
+### Prerequisites
+
+Enable Kubernetes in Docker Desktop: Settings → Kubernetes → Enable Kubernetes
+
+### Build Docker Images
+
+```bash
+# Build ws-server image
+docker build -t ws-server:latest .
+
+# Build frontend image
+docker build -t frontend:latest ./frontend
+```
+
+### Deploy All Services
+
+```bash
+kubectl apply -f k8s/
+```
+
+### Check Status
+
+```bash
+kubectl get pods
+kubectl get services
+```
+
+### Service URLs (Kubernetes)
+
+| Service    | URL                           | Credentials   |
+|------------|-------------------------------|---------------|
+| ws-server  | ws://localhost:8765           | —             |
+| Metrics    | http://localhost:9090/metrics | —             |
+| Frontend   | http://localhost:3000         | —             |
+| Prometheus | http://localhost:9091         | —             |
+| Grafana    | http://localhost:3001         | admin / admin |
+
+Grafana Data Source URL (inside k8s): `http://prometheus:9091`
+
+### Scale ws-server
+
+```bash
+kubectl scale deployment ws-server --replicas=5
+kubectl get pods
+```
+
+### Rolling Update (zero downtime)
+
+```bash
+# Rebuild image
+docker build -t ws-server:latest .
+
+# Restart pods with new image
+kubectl rollout restart deployment/ws-server
+```
 
 ### Available Metrics
 

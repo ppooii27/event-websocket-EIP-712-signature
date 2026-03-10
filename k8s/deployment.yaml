@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ws-server
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ws-server
+  template:
+    metadata:
+      labels:
+        app: ws-server
+    spec:
+      containers:
+        - name: ws-server
+          image: ws-server:latest
+          imagePullPolicy: Neve
+          ports:
+            - containerPort: 8765       # WebSocket
+            - containerPort: 9090       # Prometheus metrics

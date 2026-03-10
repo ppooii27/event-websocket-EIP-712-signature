@@ -1,4 +1,3 @@
-import React from "react";
 import usePriceStream from "./hooks/usePriceStream";
 
 function App() {

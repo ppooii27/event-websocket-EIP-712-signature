@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ws-server
+spec:
+  selector:
+    app: ws-server
+  ports:
+    - name: websocket
+      port: 8765
+      targetPort: 8765
+    - name: metrics
+      port: 9090
+      targetPort: 9090
+  type: LoadBalancer
